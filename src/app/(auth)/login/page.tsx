@@ -20,10 +20,13 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
+// Match the seeded accounts in prisma/seed.ts — these are the emails that
+// actually exist in the database after `npm run db:seed`. All share the
+// password "demo1234".
 const demoAccounts = [
-  { label: 'Student', email: 'student@demo.com' },
-  { label: 'Teacher', email: 'teacher@demo.com' },
-  { label: 'Admin', email: 'admin@demo.com' },
+  { label: 'Student', email: 'aryan@northwood.edu' },
+  { label: 'Teacher', email: 'meera@northwood.edu' },
+  { label: 'Admin', email: 'admin@northwood.edu' },
 ];
 
 function LoginForm() {
