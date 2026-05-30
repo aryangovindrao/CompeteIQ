@@ -4,6 +4,9 @@ import { handle } from '@/lib/server/http';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+// Generates a random CSRF state cookie per request — never static.
+export const dynamic = 'force-dynamic';
+
 /**
  * Starts the Google OAuth flow. Redirects to Google's consent screen.
  * The callback (/api/auth/google/callback) finishes the exchange.

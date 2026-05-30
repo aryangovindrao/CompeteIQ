@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db';
 import { handle, ok } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Derives a skill radar by averaging the user's percentage across each subject.
  * Falls back to a small default scaffold for new users with no attempts yet.

@@ -6,6 +6,8 @@ import { requireUser } from '@/lib/server/session';
 import { generateJoinCode } from '@/lib/server/gamification';
 import { serializeClass } from '@/lib/server/serializers';
 
+export const dynamic = 'force-dynamic';
+
 export const GET = handle(async (req: NextRequest) => {
   const user = await requireUser(req);
   const rows = await prisma.classRoom.findMany({

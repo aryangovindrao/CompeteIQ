@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db';
 import { handle, ok } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 
+export const dynamic = 'force-dynamic';
+
 interface Stat {
   label: string;
   value: string;

@@ -4,6 +4,8 @@ import { handle, notFound, ok } from '@/lib/server/http';
 import { requireUser } from '@/lib/server/session';
 import { serializeSubscription } from '@/lib/server/serializers';
 
+export const dynamic = 'force-dynamic';
+
 export const GET = handle(async (req: NextRequest) => {
   const me = await requireUser(req);
   const sub = await prisma.subscription.findUnique({

@@ -7,6 +7,8 @@ import { handle } from '@/lib/server/http';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+export const dynamic = 'force-dynamic';
+
 interface GoogleTokens {
   access_token: string;
   id_token: string;

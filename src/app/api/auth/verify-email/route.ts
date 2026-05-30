@@ -5,6 +5,8 @@ import { handle } from '@/lib/server/http';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Email verification landing. The verification email links here.
  * On success → redirects to /login?verified=1.
