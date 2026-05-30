@@ -1,0 +1,1 @@
+export { RewardOverlay } from './RewardOverlay';

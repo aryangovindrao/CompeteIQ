@@ -1,0 +1,393 @@
+// CompeteIQ database schema
+// Free-tier compatible: Neon, Supabase, Vercel Postgres all work.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Pooled connection for queries (PgBouncer-compatible).
+  url       = env("DATABASE_URL")
+  // Direct connection for migrations / introspection (bypasses the pooler).
+  // Required on Neon, Supabase, and any other Postgres provider that uses a
+  // transaction-mode pooler that doesn't speak the full migration protocol.
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums (mirror src/lib/types.ts)
+// ---------------------------------------------------------------------------
+
+enum Role {
+  student
+  teacher
+  institute_admin
+}
+
+enum CompetitionType {
+  mcq
+  coding
+  subjective
+  mixed
+}
+
+enum CompetitionStatus {
+  draft
+  upcoming
+  live
+  ended
+}
+
+enum Difficulty {
+  easy
+  medium
+  hard
+}
+
+enum QuestionType {
+  mcq
+  true_false
+  short
+  long
+  coding
+}
+
+enum BadgeTier {
+  bronze
+  silver
+  gold
+  platinum
+}
+
+enum PlanName {
+  free
+  starter
+  pro
+  enterprise
+}
+
+enum SubscriptionStatus {
+  trial
+  active
+  past_due
+  canceled
+}
+
+enum InvoiceStatus {
+  paid
+  pending
+  failed
+}
+
+enum NotificationType {
+  info
+  success
+  warning
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model Institute {
+  id                    String   @id @default(cuid())
+  name                  String
+  domain                String   @unique
+  plan                  PlanName @default(free)
+  country               String?
+  createdAt             DateTime @default(now())
+
+  // Stripe linkage — set when the institute first checks out.
+  stripeCustomerId      String?  @unique
+  stripeSubscriptionId  String?  @unique
+
+  users         User[]
+  classes       ClassRoom[]
+  competitions  Competition[]
+  subscription  Subscription?
+  invoices      Invoice[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  instituteId   String
+  institute     Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  role          Role     @default(student)
+  email         String   @unique
+  passwordHash  String
+  name          String
+  avatarUrl     String?
+  bio           String?
+  phone         String?
+  xpTotal       Int      @default(0)
+  streakDays    Int      @default(0)
+  tier          BadgeTier @default(bronze)
+  level         Int      @default(1)
+  xpInLevel     Int      @default(0)
+  xpForLevel    Int      @default(500)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Email verification
+  emailVerified      Boolean   @default(false)
+  verifyToken        String?   @unique
+  verifyTokenExpires DateTime?
+
+  // Password reset
+  resetOtp        String?
+  resetOtpExpires DateTime?
+
+  // OAuth linkage
+  googleId        String?  @unique
+
+  // Owned classes (teachers) and competitions
+  taughtClasses     ClassRoom[]     @relation("ClassTeacher")
+  createdCompetitions Competition[] @relation("CompetitionCreator")
+  enrollments       ClassEnrollment[]
+  attempts          Attempt[]
+  userBadges        UserBadge[]
+  certificates      Certificate[]
+  notifications     Notification[]
+  activity          ActivityEvent[]
+
+  @@index([instituteId])
+  @@index([xpTotal])
+}
+
+model ClassRoom {
+  id              String   @id @default(cuid())
+  instituteId     String
+  institute       Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  name            String
+  subject         String
+  description     String?
+  teacherId       String
+  teacher         User     @relation("ClassTeacher", fields: [teacherId], references: [id])
+  joinCode        String   @unique
+  avgScore        Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  enrollments     ClassEnrollment[]
+  competitions    Competition[]
+
+  @@index([instituteId])
+  @@index([teacherId])
+}
+
+model ClassEnrollment {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classId     String
+  classroom   ClassRoom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  enrolledAt  DateTime @default(now())
+
+  @@unique([userId, classId])
+  @@index([classId])
+}
+
+model Competition {
+  id              String   @id @default(cuid())
+  instituteId     String
+  institute       Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  classId         String?
+  classroom       ClassRoom? @relation(fields: [classId], references: [id])
+  title           String
+  description     String?
+  type            CompetitionType   @default(mcq)
+  difficulty      Difficulty        @default(medium)
+  status          CompetitionStatus @default(upcoming)
+  joinCode        String   @unique
+  startTime       DateTime
+  endTime         DateTime
+  durationMin     Int
+  maxScore        Int      @default(100)
+  passThreshold   Int      @default(60)
+  createdById     String
+  createdBy       User     @relation("CompetitionCreator", fields: [createdById], references: [id])
+  createdAt       DateTime @default(now())
+
+  questions       Question[]
+  attempts        Attempt[]
+  certificates    Certificate[]
+
+  @@index([instituteId])
+  @@index([classId])
+  @@index([status])
+}
+
+model Question {
+  id              String   @id @default(cuid())
+  competitionId   String
+  competition     Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  type            QuestionType
+  content         String
+  correctOptionId String?
+  correctAnswer   String?
+  marks           Int      @default(10)
+  explanation     String?
+  order           Int      @default(0)
+
+  options         QuestionOption[]
+  attemptAnswers  AttemptAnswer[]
+
+  @@index([competitionId])
+}
+
+model QuestionOption {
+  id          String   @id   // not auto-generated: 'a','b','c','d','true','false'
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text        String
+
+  @@unique([questionId, id])
+  @@index([questionId])
+}
+
+model Attempt {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competitionId    String
+  competition      Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  score            Int
+  maxScore         Int
+  percentage       Int
+  passed           Boolean
+  rank             Int      @default(0)
+  totalParticipants Int     @default(0)
+  timeTakenSec     Int      @default(0)
+  xpEarned         Int      @default(0)
+  submittedAt      DateTime @default(now())
+
+  answers          AttemptAnswer[]
+
+  @@unique([userId, competitionId])
+  @@index([competitionId])
+  @@index([userId])
+}
+
+model AttemptAnswer {
+  id              String   @id @default(cuid())
+  attemptId       String
+  attempt         Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId      String
+  question        Question @relation(fields: [questionId], references: [id])
+  optionId        String?
+  text            String?
+  correct         Boolean  @default(false)
+  marksAwarded    Int      @default(0)
+
+  @@index([attemptId])
+}
+
+model Badge {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String
+  condition   String
+  icon        String
+  tier        BadgeTier
+  xpReward    Int
+
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId     String
+  badge       Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  awardedAt   DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+}
+
+model Certificate {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competitionId   String
+  competition     Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  score           Int
+  rank            Int
+  pdfUrl          String
+  isPublic        Boolean  @default(false)
+  issuedAt        DateTime @default(now())
+
+  @@unique([userId, competitionId])
+  @@index([userId])
+}
+
+model Package {
+  id              String   @id @default(cuid())
+  name            PlanName @unique
+  label           String
+  priceMonthly    Int      // dollars (whole), or -1 = custom
+  priceAnnual     Int
+  maxCompetitions Int
+  maxParticipants Int
+  maxTeachers     Int
+  features        String[] // Postgres text[]
+  popular         Boolean  @default(false)
+
+  // Stripe price IDs (configured via env or admin UI later).
+  stripePriceMonthlyId String?
+  stripePriceAnnualId  String?
+
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id            String   @id @default(cuid())
+  instituteId   String   @unique
+  institute     Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  packageId     String
+  package       Package  @relation(fields: [packageId], references: [id])
+  planName      PlanName
+  status        SubscriptionStatus @default(active)
+  validUntil    DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  instituteId   String
+  institute     Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  date          DateTime
+  description   String
+  amount        Int      // in dollars (whole units, matches mock)
+  status        InvoiceStatus
+  pdfUrl        String
+
+  @@index([instituteId])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
+  read        Boolean  @default(false)
+  type        NotificationType @default(info)
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+model ActivityEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // 'score' | 'badge' | 'join' | 'certificate'
+  text        String
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
