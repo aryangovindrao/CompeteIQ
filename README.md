@@ -103,15 +103,6 @@ The app is designed to run on a $0/month stack:
 | **Cloudflare R2** | Files | 10 GB egress/mo |
 | **Upstash Redis** | Rate limit | 10k cmds/day |
 
-Steps:
-
-1. `git push` to GitHub
-2. Import the repo on [vercel.com/new](https://vercel.com/new)
-3. Set env vars in Vercel (same shape as `.env.example`, use Neon's **pooled** URL for `DATABASE_URL`)
-4. Run `npm run db:push` locally with the production URLs to create tables
-5. (Optional) Run `npm run db:seed` for demo data
-6. Open the `.vercel.app` URL — you're live
-
 For the full step-by-step including Stripe webhook configuration and custom domains, see the deployment section in [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ---
@@ -133,11 +124,7 @@ Optional integrations light up as you add their keys:
 - `STRIPE_SECRET_KEY` + price IDs + webhook secret → payments
 - `GROQ_API_KEY` (or `OPENAI_API_KEY`) → real AI
 - `GOOGLE_CLIENT_ID/SECRET` → Google sign-in
-- `R2_*` → file storage
+- `SUPABASE*` → file storage
 - `UPSTASH_REDIS_REST_URL/TOKEN` → distributed rate limiting
 
----
-
-## License
-
-Proprietary. © Northwood Academy.
+--
